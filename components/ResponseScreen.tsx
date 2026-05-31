@@ -1,7 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getMockResponse, type AIResponse } from '@/lib/mockAI'
+
+interface AIResponse {
+  empathy: string;
+  alternatives: string[];
+  insight: string;
+  tip: string;
+  category: string;
+}
 
 interface Props {
   userInput: string;
@@ -12,7 +19,7 @@ interface Props {
 function LoadingDots() {
   return (
     <div className="flex flex-col items-center gap-6 py-16">
-      <div className="text-5xl animate-pulse-soft" style={{ animationName: 'pulse-dot' }}>🌸</div>
+      <div className="text-5xl" style={{ animation: 'pulse 2s infinite' }}>🌸</div>
       <div className="flex gap-2">
         <span className="w-3 h-3 rounded-full dot-1" style={{ background: '#f48fb1' }} />
         <span className="w-3 h-3 rounded-full dot-2" style={{ background: '#ce93d8' }} />
@@ -46,13 +53,27 @@ function SectionLabel({ emoji, label, color }: { emoji: string; label: string; c
 export default function ResponseScreen({ userInput, onBack, onRetry }: Props) {
   const [loading, setLoading] = useState(true);
   const [response, setResponse] = useState<AIResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setResponse(getMockResponse(userInput));
-      setLoading(false);
-    }, 2000);
-    return () => clearTimeout(timer);
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userInput }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setResponse(data);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('ネットワークエラーが発生しました');
+        setLoading(false);
+      });
   }, [userInput]);
 
   return (
@@ -73,6 +94,18 @@ export default function ResponseScreen({ userInput, onBack, onRetry }: Props) {
 
       {loading ? (
         <LoadingDots />
+      ) : error ? (
+        <div className="flex flex-col items-center gap-6 py-16 text-center">
+          <div className="text-4xl">😔</div>
+          <p className="text-sm leading-relaxed" style={{ color: '#9e7b7b' }}>{error}</p>
+          <button
+            onClick={onRetry}
+            className="w-full h-12 rounded-2xl text-sm font-bold"
+            style={{ background: 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)', color: '#fff' }}
+          >
+            もう一度試す
+          </button>
+        </div>
       ) : response && (
         <div className="flex flex-col gap-4 pb-8">
 

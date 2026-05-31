@@ -4,8 +4,9 @@ import { useState } from 'react'
 import HomeScreen from '@/components/HomeScreen'
 import InputScreen from '@/components/InputScreen'
 import ResponseScreen from '@/components/ResponseScreen'
+import HistoryScreen from '@/components/HistoryScreen'
 
-type Screen = 'home' | 'input' | 'response'
+type Screen = 'home' | 'input' | 'response' | 'history'
 
 export default function Page() {
   const [screen, setScreen] = useState<Screen>('home')
@@ -17,11 +18,13 @@ export default function Page() {
   }
 
   return (
-    /* PC: 中央にスマホフレーム / スマホ: 全画面 */
     <div className="app-wrapper min-h-[100svh] sm:flex sm:items-center sm:justify-center sm:p-8">
       <div className="phone-frame">
         {screen === 'home' && (
-          <HomeScreen onStart={() => setScreen('input')} />
+          <HomeScreen
+            onStart={() => setScreen('input')}
+            onHistory={() => setScreen('history')}
+          />
         )}
         {screen === 'input' && (
           <InputScreen
@@ -34,6 +37,11 @@ export default function Page() {
             userInput={userInput}
             onBack={() => setScreen('home')}
             onRetry={() => setScreen('input')}
+          />
+        )}
+        {screen === 'history' && (
+          <HistoryScreen
+            onBack={() => setScreen('home')}
           />
         )}
       </div>
