@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function GET() {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json([]);
-  }
-
   try {
-    const supabase = getSupabaseAdmin();
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
+
     const { data, error } = await supabase
       .from('conversations')
       .select('*')

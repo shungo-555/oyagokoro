@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAIResponse } from '@/lib/gemini';
-import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,19 +14,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'GEMINI_API_KEY が設定されていません' }, { status: 500 });
     }
 
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
+
     const response = await getAIResponse(userInput);
 
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseAdmin();
-      await supabase.from('conversations').insert({
-        user_input: userInput,
-        empathy: response.empathy,
-        alternatives: response.alternatives,
-        insight: response.insight,
-        tip: response.tip,
-        category: response.category,
-      });
-    }
+    await supabase.from('conversations').insert({
+      user_id: user.id,
+      user_input: userInput,
+      empathy: response.empathy,
+      alternatives: response.alternatives,
+      insight: response.insight,
+      tip: response.tip,
+      category: response.category,
+    });
 
     return NextResponse.json(response);
   } catch (error) {
