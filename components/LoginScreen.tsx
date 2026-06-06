@@ -28,7 +28,7 @@ export default function LoginScreen({ onLogin: _onLogin }: Props) {
     const { error } = await getClient().auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (error) {
