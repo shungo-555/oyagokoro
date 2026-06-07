@@ -75,6 +75,7 @@ export default function ClientApp({ supabaseUrl, supabaseAnonKey }: Props) {
               <HomeScreen
                 onStart={() => setScreen('input')}
                 onHistory={() => setScreen('history')}
+                onLogout={() => supabase?.auth.signOut()}
               />
             )}
             {screen === 'input' && (
