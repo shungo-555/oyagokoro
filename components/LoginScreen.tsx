@@ -1,38 +1,40 @@
 'use client'
 
-import { useRef, useState } from 'react';
-import { createSupabaseBrowserClient } from '@/lib/supabase';
+import { useRef, useState } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Props {
-  onLogin: () => void;
+  supabaseUrl: string
+  supabaseAnonKey: string
+  onLogin: () => void
 }
 
-export default function LoginScreen({ onLogin: _onLogin }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+export default function LoginScreen({ supabaseUrl, supabaseAnonKey, onLogin: _onLogin }: Props) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const supabaseRef = useRef<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+  const clientRef = useRef<ReturnType<typeof createBrowserClient> | null>(null)
   const getClient = () => {
-    if (!supabaseRef.current) {
-      supabaseRef.current = createSupabaseBrowserClient();
+    if (!clientRef.current) {
+      clientRef.current = createBrowserClient(supabaseUrl, supabaseAnonKey)
     }
-    return supabaseRef.current;
-  };
+    return clientRef.current
+  }
 
   const signInWithGoogle = async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true)
+    setError('')
     const { error } = await getClient().auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
-    });
+    })
     if (error) {
-      setError('Googleログインに失敗しました。');
-      setLoading(false);
+      setError('Googleログインに失敗しました。')
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div
@@ -79,5 +81,5 @@ export default function LoginScreen({ onLogin: _onLogin }: Props) {
         )}
       </div>
     </div>
-  );
+  )
 }
