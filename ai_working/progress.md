@@ -1,5 +1,50 @@
 # oyagokoro 開発メモ
 
+## v4 完了（2026-06-13）
+
+### やったこと
+
+- **子供情報管理（SettingsScreen）**
+  - `children` テーブル新設（id, user_id, name, birth_date, gender）
+  - RLS ポリシー設定
+  - 設定画面から追加・編集・削除
+  - 生年月日入力で正確な年齢計算（誕生日通過済みかを考慮）
+
+- **会話前の子供選択（ChildSelectScreen）**
+  - 「話してみる」後に誰のことか選べる画面を追加
+  - 子供が登録されていない場合はスキップして InputScreen へ
+  - 「スキップ」ボタンで選択しないまま進める
+
+- **AIによる自動紐づけ**
+  - 子供を選択しなかった場合、Gemini が会話テキストから子供名を検出
+  - 登録済み子供と照合して `child_id` を自動セット
+  - `/api/chat` に `detected_child_name` ロジックを実装
+
+- **履歴画面の更新**
+  - カテゴリ別グラフ → 子どもごとグラフに変更
+  - 会話カードに子供名バッジを表示
+  - `category` フィールドは null 許容として既存データ保持
+
+- **振り返りの削除機能**
+  - 個別削除：カードを展開した下部に「この記録を削除する」ボタン
+  - 一括削除：「編集」ボタンでチェックボックスモード → 「全選択/全解除」→「X件を削除する」
+  - 削除前に必ず確認モーダル（「この操作は取り消せません」）
+  - `DELETE /api/history` に IDs 配列を送る実装
+
+- **バグ修正**
+  - RLS の DELETE ポリシーが未設定で削除がサイレント失敗していた問題を修正
+  - `migration_v4_fix_rls.sql` を追加
+
+### DB マイグレーション（Supabase で実行済み）
+- `migration_v4.sql` — children テーブル作成、conversations に child_id 追加
+- `migration_v4_fix_rls.sql` — conversations の DELETE ポリシー追加
+
+### 重要な決定事項
+- `birth_year int` → `birth_date date` に変更（生年月日で正確な年齢計算）
+- children テーブルは v4 途中でリセット（birth_year → birth_date 変更のため）
+
+---
+
 ## v3 完了（2026-06-06〜07）
 
 ### やったこと
@@ -36,137 +81,86 @@
 
 ---
 
-## v4 開発計画
+## v5 機能案
 
-### 優先順位と設計方針
+### A. ポジティブ記録 ＋ 連続日数（旧 v4 計画から繰越）
 
-#### 1. 子供情報の登録とカテゴリ廃止
+怒ってしまった日だけでなく、「何もなかった」「よくできた」も記録できるように。
 
-**背景:** 現在の `category` フィールド（勉強・食事・片付けなど）はユーザーにとって直感的でない。代わりに「誰への対応だったか」を記録できるようにする。
-
-**DB変更（マイグレーション必要）:**
-
+**DB 変更:**
 ```sql
--- 新テーブル: 子供情報
-create table public.children (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid references auth.users(id) on delete cascade,
-  name       text not null,         -- 名前 or ニックネーム
-  birth_year int,                   -- 生まれ年（年齢計算用）
-  gender     text,                  -- 'boy' | 'girl' | 'other' | null
-  created_at timestamptz default now()
-);
-
--- conversations に child_id を追加、category を廃止
-alter table public.conversations
-  add column child_id uuid references public.children(id) on delete set null;
--- ※ category カラムは残して null 許容にする（既存データ保持）
-```
-
-**RLS追加:**
-```sql
-create policy "Users manage own children"
-  on public.children for all using (auth.uid() = user_id);
-```
-
-**新しい画面フロー:**
-```
-HomeScreen
-  ↓ 話してみる
-ChildSelectScreen（子供を選ぶ、または「未設定」）
-  ↓
-InputScreen（現在と同じ）
-  ↓
-ResponseScreen（現在と同じ、child_id を POST に追加）
-```
-
-**HistoryScreen の変更:**
-- カテゴリ別グラフ → 子供別グラフ
-- 子供でフィルタできるタブ or セレクタ
-
-**子供設定画面:**
-- HomeScreen から「子供を管理」へアクセス
-- 追加・編集・削除
-
----
-
-#### 2. ポジティブ記録と連続日数カウント
-
-**背景:** 怒ってしまったときだけ記録するアプリではなく、日記的に使えるように。「何もなかった」「よくできた」「うれしかった」も記録できると、連続で怒らなかった日数を可視化できる。
-
-**DB変更:**
-
-```sql
--- conversations の entry_type を追加
 alter table public.conversations
   add column entry_type text not null default 'incident';
   -- 'incident'（怒ってしまった）
-  -- 'calm'（何もなかった）
-  -- 'good'（よくできた・うれしかったこと）
+  -- 'calm'（何もなかった日）
+  -- 'good'（よかったこと）
 ```
 
-**entry_type によるAI応答の違い:**
-- `incident`: 現在の応答（共感・代替フレーズ・洞察・アドバイス）
-- `calm` / `good`: 短い承認メッセージ（「よかったですね、続けましょう」的な）
-
-**HomeScreen の変更:**
-```
-[話してみる（incident）]  [よかったことを記録（calm/good）]
-```
-
-**連続日数カウント（HistoryScreen）:**
-- 「incident」エントリがない日 = "怒らなかった日"
-- または「calm」か「good」エントリがある日を "よかった日" としてカウント
-- 現在の連続日数と最長記録を表示
+**UI 変更:**
+- HomeScreen に「よかったことを記録」ボタンを追加
+- `calm` / `good` の場合は短い承認メッセージのみ返す（Gemini 呼び出しは軽量化）
+- HistoryScreen に「怒らなかった日の連続記録」と「最長記録」を表示
 
 ---
 
-#### 3. ブラウザプッシュ通知
+### B. ブラウザプッシュ通知（旧 v4 計画から繰越）
 
-**方針:** メール通知なし、Web Push（Service Worker）を使用。
+毎晩振り返りを促す通知。
 
 **技術:**
-- `next-pwa` または手動で `public/sw.js`（Service Worker）を実装
-- `PushManager.subscribe()` で通知を購読
-- Supabase Edge Function または Vercel Cron で定時送信
+- Web Push API（Service Worker）
+- Supabase Edge Function か Vercel Cron で定時送信
+- `push_subscriptions` テーブル追加
 
-**通知タイミング（ユーザーが設定可能）:**
+**通知タイミング:**
 - デフォルト：毎晩20時「今日の振り返りを記録しませんか？」
-- 連続記録中：「〇日連続記録中！今日はどうでした？」
-
-**DB追加:**
-```sql
--- push通知サブスクリプション保存
-create table public.push_subscriptions (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid references auth.users(id) on delete cascade,
-  endpoint    text not null,
-  keys        jsonb not null,
-  created_at  timestamptz default now()
-);
-```
+- 連続記録中：「○日連続！今日はどうでした？」
 
 ---
 
-### v4 実装順序（推奨）
+### C. 子供ごとの詳細振り返り
 
-1. **子供情報登録 + カテゴリ廃止**（DB変更あり、既存データへの影響を確認）
-2. **ポジティブ記録 + 連続日数**（DB変更あり、UI変更大）
-3. **プッシュ通知**（Service Worker + バックエンド処理が必要）
+子供を選んで、その子との記録だけを見られる画面。
 
----
-
-### 既存データについての確認事項
-
-- `category` フィールドを持つ既存の `conversations` レコードをどうするか？
-  - **リセットOK** → マイグレーション不要、テーブル再作成でシンプル
-  - **保持したい** → ALTER TABLE でカラム追加、category は null 許容のまま残す
+**内容:**
+- 子供プロフィールページ（名前・年齢・記録数）
+- その子との会話一覧
+- よかった日 vs 怒ってしまった日の比率グラフ
+- 「最近の傾向」をAIが一言でコメント
 
 ---
 
-### 設計上の注意点
+### D. AIによる月次レポート
 
-- **`NEXT_PUBLIC_` の問題:** Vercel-Supabase 連携を使う限り、env var は `SUPABASE_ANON_KEY`（プレフィックスなし）を使うこと。`page.tsx` はサーバーコンポーネントのまま維持する。
-- **Supabase の Redirect URLs:** 新しいドメインを追加した場合は必ず Supabase の URL Configuration に追加すること。
-- **RLS は必須:** 新しいテーブルには必ず RLS ポリシーを追加すること。
-- **子供情報は sensitive:** 子供の名前・年齢はプライバシーに関わるため、RLS を厳密に。
+月末に「今月の振り返り」を自動生成。
+
+**内容:**
+- 今月何回記録したか
+- 多かった状況のパターン
+- 成長ポイント（前月比で怒った回数が減ったなど）
+- 来月へのひとことアドバイス
+
+**実装:** HistoryScreen か別画面で「今月のまとめを見る」ボタン → Gemini に会話一覧を要約させる
+
+---
+
+### E. パートナー共有（家族で使う）
+
+同じ家族で記録を共有できる機能。
+
+**概要:**
+- 招待コードを発行して家族を招待
+- 家族の記録も見られる（または自分の記録のみ共有可能な設定）
+- 「パパも同じ悩みを持っている」という気づきを促す
+
+**DB 変更:** `families` テーブル + `family_id` を user に付与
+
+---
+
+### v5 推奨実装順序
+
+1. **A（ポジティブ記録 + 連続日数）** — UX 向上、DBは軽微な変更のみ
+2. **C（子供ごと詳細）** — 既存データを活かせる、DB変更なし
+3. **D（月次レポート）** — DB変更なし、Gemini だけで実装可能
+4. **B（プッシュ通知）** — Service Worker の設定が必要、やや工数大
+5. **E（パートナー共有）** — 設計が複雑、後回し推奨
