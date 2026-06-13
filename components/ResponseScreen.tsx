@@ -7,11 +7,11 @@ interface AIResponse {
   alternatives: string[];
   insight: string;
   tip: string;
-  category: string;
 }
 
 interface Props {
   userInput: string;
+  childId: string | null;
   onBack: () => void;
   onRetry: () => void;
 }
@@ -50,7 +50,7 @@ function SectionLabel({ emoji, label, color }: { emoji: string; label: string; c
   );
 }
 
-export default function ResponseScreen({ userInput, onBack, onRetry }: Props) {
+export default function ResponseScreen({ userInput, childId, onBack, onRetry }: Props) {
   const [loading, setLoading] = useState(true);
   const [response, setResponse] = useState<AIResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export default function ResponseScreen({ userInput, onBack, onRetry }: Props) {
     fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userInput }),
+      body: JSON.stringify({ userInput, child_id: childId }),
     })
       .then(r => r.json())
       .then(data => {
@@ -74,7 +74,7 @@ export default function ResponseScreen({ userInput, onBack, onRetry }: Props) {
         setError('ネットワークエラーが発生しました');
         setLoading(false);
       });
-  }, [userInput]);
+  }, [userInput, childId]);
 
   return (
     <div className="flex flex-col min-h-full px-5 py-8"

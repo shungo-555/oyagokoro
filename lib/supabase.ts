@@ -1,5 +1,14 @@
 import { createBrowserClient } from '@supabase/ssr';
 
+export interface Child {
+  id: string;
+  user_id: string;
+  name: string;
+  birth_year: number | null;
+  gender: string | null;
+  created_at: string;
+}
+
 export interface Conversation {
   id: string;
   user_id: string;
@@ -8,7 +17,8 @@ export interface Conversation {
   alternatives: string[];
   insight: string;
   tip: string;
-  category: string;
+  category: string | null;
+  child_id: string | null;
   created_at: string;
 }
 

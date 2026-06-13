@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userInput } = await req.json();
+    const { userInput, child_id: providedChildId } = await req.json();
 
     if (!userInput || typeof userInput !== 'string' || userInput.length > 500) {
       return NextResponse.json({ error: '入力が不正です' }, { status: 400 });
@@ -16,12 +16,28 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
 
-    if (!user) {
-      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    // child_id が指定されていない場合のみ自動検出用に子供リストを取得
+    const { data: children } = providedChildId
+      ? { data: null }
+      : await supabase.from('children').select('id, name, birth_year').eq('user_id', user.id);
+
+    const childrenForDetection = (!providedChildId && children && children.length > 0)
+      ? children
+      : undefined;
+
+    const response = await getAIResponse(userInput, childrenForDetection);
+
+    // 自動検出：detected_child_name を既存の子供と照合
+    let child_id: string | null = providedChildId ?? null;
+    if (!child_id && response.detected_child_name && children) {
+      const detected = response.detected_child_name.toLowerCase();
+      const matched = children.find(c =>
+        c.name.toLowerCase().includes(detected) || detected.includes(c.name.toLowerCase())
+      );
+      if (matched) child_id = matched.id;
     }
-
-    const response = await getAIResponse(userInput);
 
     await supabase.from('conversations').insert({
       user_id: user.id,
@@ -30,10 +46,15 @@ export async function POST(req: NextRequest) {
       alternatives: response.alternatives,
       insight: response.insight,
       tip: response.tip,
-      category: response.category,
+      child_id,
     });
 
-    return NextResponse.json(response);
+    return NextResponse.json({
+      empathy: response.empathy,
+      alternatives: response.alternatives,
+      insight: response.insight,
+      tip: response.tip,
+    });
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json({ error: 'AI応答の取得に失敗しました' }, { status: 500 });

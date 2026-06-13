@@ -2,7 +2,17 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-const SYSTEM_PROMPT = `あなたは「おやごころ」というアプリの感情サポートAIです。
+type ChildRef = { name: string; birth_year?: number | null };
+
+function buildSystemPrompt(children?: ChildRef[]) {
+  const hasChildren = children && children.length > 0;
+  const childList = hasChildren ? children.map(c => c.name).join('、') : '';
+
+  const childField = hasChildren
+    ? `"detected_child_name": "以下のリストから会話に登場する子どもの名前を返す。確信がなければ null。リスト：${childList}"`
+    : '"detected_child_name": null';
+
+  return `あなたは「おやごころ」というアプリの感情サポートAIです。
 子どもに強く当たってしまった後、罪悪感や後悔を抱える親の気持ちに寄り添い、
 前向きになれるアドバイスを提供します。
 
@@ -12,26 +22,30 @@ const SYSTEM_PROMPT = `あなたは「おやごころ」というアプリの感
   "alternatives": ["こう言えばよかった言葉1", "こう言えばよかった言葉2", "こう言えばよかった言葉3"],
   "insight": "なぜそうなったかの優しい分析（2〜3文。自己否定を促さない）",
   "tip": "次のための具体的な一歩（2〜3文。すぐ実践できること）",
-  "category": "以下から最も近いもの1つだけ: 勉強/食事/片付け/兄弟げんか/ゲーム/朝の準備/その他"
+  ${childField}
 }
 
 注意：
 - 親を責めない
 - 振り返れる親は十分いい親だと伝える
 - 実践しやすい言葉かけの具体例を出す`;
+}
 
 export interface AIResponse {
   empathy: string;
   alternatives: string[];
   insight: string;
   tip: string;
-  category: string;
+  detected_child_name: string | null;
 }
 
-export async function getAIResponse(userInput: string): Promise<AIResponse> {
+export async function getAIResponse(
+  userInput: string,
+  children?: ChildRef[]
+): Promise<AIResponse> {
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: buildSystemPrompt(children),
   });
 
   const result = await model.generateContent(userInput);
@@ -40,5 +54,12 @@ export async function getAIResponse(userInput: string): Promise<AIResponse> {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('AIの応答形式が不正です');
 
-  return JSON.parse(jsonMatch[0]) as AIResponse;
+  const parsed = JSON.parse(jsonMatch[0]);
+  return {
+    empathy: parsed.empathy,
+    alternatives: parsed.alternatives,
+    insight: parsed.insight,
+    tip: parsed.tip,
+    detected_child_name: parsed.detected_child_name ?? null,
+  };
 }

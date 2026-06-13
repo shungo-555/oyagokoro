@@ -3,17 +3,24 @@
 interface Props {
   onStart: () => void;
   onHistory: () => void;
+  onSettings: () => void;
   onLogout: () => void;
 }
 
-export default function HomeScreen({ onStart, onHistory, onLogout }: Props) {
+export default function HomeScreen({ onStart, onHistory, onSettings, onLogout }: Props) {
   return (
     <div className="flex flex-col items-center min-h-full px-6"
          style={{ background: 'linear-gradient(160deg, #fff0ea 0%, #fce4ec 50%, #ede7f6 100%)' }}>
 
-      {/* 上部：さくら + ログアウト */}
+      {/* 上部：さくら + 設定 + ログアウト */}
       <div className="w-full flex items-center justify-between pt-10 pb-2">
-        <div className="w-8" />
+        <button
+          onClick={onSettings}
+          className="text-xs px-3 py-1 rounded-full transition-all active:scale-95"
+          style={{ background: 'rgba(255,255,255,0.6)', color: '#9e7b7b' }}
+        >
+          ⚙️ 設定
+        </button>
         <div className="animate-fade-in text-5xl">🌸</div>
         <button
           onClick={onLogout}

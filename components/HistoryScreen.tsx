@@ -1,21 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Conversation } from '@/lib/supabase'
+import type { Conversation, Child } from '@/lib/supabase'
 
 interface Props {
   onBack: () => void
+  children: Child[]
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  '勉強': '#90caf9',
-  '食事': '#a5d6a7',
-  '片付け': '#ffcc80',
-  '兄弟げんか': '#ef9a9a',
-  'ゲーム': '#ce93d8',
-  '朝の準備': '#80deea',
-  'その他': '#bcaaa4',
-}
+const CHILD_COLORS = ['#f48fb1', '#ce93d8', '#90caf9', '#a5d6a7', '#ffcc80', '#80deea']
+const UNKNOWN_COLOR = '#bcaaa4'
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
@@ -24,7 +18,7 @@ function getFirstDayOfMonth(year: number, month: number) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function HistoryScreen({ onBack }: Props) {
+export default function HistoryScreen({ onBack, children }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -42,15 +36,28 @@ export default function HistoryScreen({ onBack }: Props) {
       .catch(() => setLoading(false))
   }, [])
 
+  const childMap = new Map(children.map((c, i) => [c.id, { name: c.name, color: CHILD_COLORS[i % CHILD_COLORS.length] }]))
+
   const daysWithEntries = new Set(conversations.map(c => c.created_at.slice(0, 10)))
   const monthStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`
 
-  const allCategories = Object.keys(CATEGORY_COLORS)
-  const categoryCounts = allCategories
-    .map(cat => ({ name: cat, count: conversations.filter(c => c.category === cat).length }))
+  // 子どもごとのカウント
+  const childCounts = children
+    .map((child, i) => ({
+      id: child.id,
+      name: child.name,
+      color: CHILD_COLORS[i % CHILD_COLORS.length],
+      count: conversations.filter(c => c.child_id === child.id).length,
+    }))
     .filter(c => c.count > 0)
     .sort((a, b) => b.count - a.count)
-  const maxCount = Math.max(...categoryCounts.map(c => c.count), 1)
+
+  const unknownCount = conversations.filter(c => !c.child_id).length
+  const allChartItems = [
+    ...childCounts,
+    ...(unknownCount > 0 ? [{ id: '__unknown__', name: '未設定', color: UNKNOWN_COLOR, count: unknownCount }] : []),
+  ]
+  const maxCount = Math.max(...allChartItems.map(c => c.count), 1)
 
   const filtered = selectedDate
     ? conversations.filter(c => c.created_at.startsWith(selectedDate))
@@ -74,7 +81,6 @@ export default function HistoryScreen({ onBack }: Props) {
     <div className="flex flex-col min-h-full"
          style={{ background: 'linear-gradient(160deg, #fff8f5 0%, #fce4ec 100%)' }}>
 
-      {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-8 pb-4 flex-shrink-0 animate-fade-in">
         <button
           onClick={onBack}
@@ -114,26 +120,25 @@ export default function HistoryScreen({ onBack }: Props) {
             </div>
           </div>
 
-          {/* Category Bar Chart */}
-          {categoryCounts.length > 0 && (
+          {/* 子どもごとのチャート */}
+          {allChartItems.length > 0 && (
             <div className="rounded-2xl p-4 animate-fade-in-2" style={{ background: 'rgba(255,255,255,0.9)' }}>
               <p className="text-xs font-bold tracking-widest mb-3" style={{ color: '#9e7b7b' }}>
-                📊 カテゴリ別
+                👶 子どもごと
               </p>
               <div className="flex flex-col gap-2">
-                {categoryCounts.map(({ name, count }) => (
-                  <div key={name} className="flex items-center gap-2">
-                    <span className="text-xs w-16 text-right flex-shrink-0" style={{ color: '#7b4f4f' }}>{name}</span>
+                {allChartItems.map(item => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <span className="text-xs w-14 text-right flex-shrink-0 truncate" style={{ color: '#7b4f4f' }}>
+                      {item.name}
+                    </span>
                     <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: '#f5e8e8' }}>
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${(count / maxCount) * 100}%`,
-                          background: CATEGORY_COLORS[name] ?? '#bcaaa4',
-                        }}
+                        style={{ width: `${(item.count / maxCount) * 100}%`, background: item.color }}
                       />
                     </div>
-                    <span className="text-xs w-4 text-right flex-shrink-0" style={{ color: '#9e7b7b' }}>{count}</span>
+                    <span className="text-xs w-4 text-right flex-shrink-0" style={{ color: '#9e7b7b' }}>{item.count}</span>
                   </div>
                 ))}
               </div>
@@ -196,7 +201,7 @@ export default function HistoryScreen({ onBack }: Props) {
               </p>
             )}
             {filtered.map(conv => (
-              <ConversationCard key={conv.id} conversation={conv} />
+              <ConversationCard key={conv.id} conversation={conv} childMap={childMap} />
             ))}
           </div>
 
@@ -206,10 +211,17 @@ export default function HistoryScreen({ onBack }: Props) {
   )
 }
 
-function ConversationCard({ conversation: c }: { conversation: Conversation }) {
+function ConversationCard({
+  conversation: c,
+  childMap,
+}: {
+  conversation: Conversation
+  childMap: Map<string, { name: string; color: string }>
+}) {
   const [open, setOpen] = useState(false)
   const d = new Date(c.created_at)
   const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const childInfo = c.child_id ? childMap.get(c.child_id) : null
 
   return (
     <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: 'rgba(255,255,255,0.9)' }}>
@@ -222,10 +234,12 @@ function ConversationCard({ conversation: c }: { conversation: Conversation }) {
             </p>
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <span className="text-xs px-2 py-0.5 rounded-full text-white"
-              style={{ background: CATEGORY_COLORS[c.category] ?? '#bcaaa4' }}>
-              {c.category}
-            </span>
+            {childInfo && (
+              <span className="text-xs px-2 py-0.5 rounded-full text-white"
+                style={{ background: childInfo.color }}>
+                {childInfo.name}
+              </span>
+            )}
             <span className="text-xs" style={{ color: '#c9a9a9' }}>{open ? '▲' : '▼'}</span>
           </div>
         </div>
