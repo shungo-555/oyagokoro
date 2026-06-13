@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-type ChildRef = { name: string; birth_year?: number | null };
+type ChildRef = { name: string };
 
 function buildSystemPrompt(children?: ChildRef[]) {
   const hasChildren = children && children.length > 0;

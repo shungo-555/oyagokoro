@@ -11,7 +11,14 @@ interface Props {
 const CHILD_COLORS = ['#f48fb1', '#ce93d8', '#90caf9', '#a5d6a7', '#ffcc80', '#80deea']
 
 export default function ChildSelectScreen({ children, onSelect, onBack }: Props) {
-  const currentYear = new Date().getFullYear()
+  function calcAge(birthDate: string): number {
+    const birth = new Date(birthDate)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+    return age
+  }
 
   return (
     <div className="flex flex-col min-h-full px-5 py-8"
@@ -39,7 +46,7 @@ export default function ChildSelectScreen({ children, onSelect, onBack }: Props)
       <div className="flex flex-col gap-3 flex-1 animate-fade-in-3">
         {children.map((child, i) => {
           const color = CHILD_COLORS[i % CHILD_COLORS.length]
-          const ageText = child.birth_year ? `${currentYear - child.birth_year}歳` : ''
+          const ageText = child.birth_date ? `${calcAge(child.birth_date)}歳` : ''
           const genderText = child.gender === 'boy' ? '男の子' : child.gender === 'girl' ? '女の子' : child.gender === 'other' ? 'その他' : ''
           const sub = [ageText, genderText].filter(Boolean).join('・')
 

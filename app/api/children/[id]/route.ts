@@ -18,7 +18,7 @@ export async function PATCH(
     }
     updates.name = body.name.trim();
   }
-  if (body.birth_year !== undefined) updates.birth_year = body.birth_year;
+  if (body.birth_date !== undefined) updates.birth_date = body.birth_date;
   if (body.gender !== undefined) updates.gender = body.gender;
 
   const { data, error } = await supabase

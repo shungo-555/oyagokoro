@@ -11,11 +11,20 @@ interface Props {
 
 interface FormState {
   name: string
-  birth_year: string
+  birth_date: string
   gender: string
 }
 
-const EMPTY_FORM: FormState = { name: '', birth_year: '', gender: '' }
+const EMPTY_FORM: FormState = { name: '', birth_date: '', gender: '' }
+
+function calcAge(birthDate: string): number {
+  const birth = new Date(birthDate)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
 
 export default function SettingsScreen({ children, onBack, onChildrenChange }: Props) {
   const [showForm, setShowForm] = useState(false)
@@ -35,7 +44,7 @@ export default function SettingsScreen({ children, onBack, onChildrenChange }: P
     setEditingId(child.id)
     setForm({
       name: child.name,
-      birth_year: child.birth_year?.toString() ?? '',
+      birth_date: child.birth_date ?? '',
       gender: child.gender ?? '',
     })
     setError(null)
@@ -49,7 +58,7 @@ export default function SettingsScreen({ children, onBack, onChildrenChange }: P
     try {
       const body = {
         name: form.name.trim(),
-        birth_year: form.birth_year ? parseInt(form.birth_year) : null,
+        birth_date: form.birth_date || null,
         gender: form.gender || null,
       }
 
@@ -94,8 +103,6 @@ export default function SettingsScreen({ children, onBack, onChildrenChange }: P
     }
   }
 
-  const currentYear = new Date().getFullYear()
-
   return (
     <div className="flex flex-col min-h-full px-5 py-8"
          style={{ background: 'linear-gradient(160deg, #fff8f5 0%, #fce4ec 100%)' }}>
@@ -122,7 +129,8 @@ export default function SettingsScreen({ children, onBack, onChildrenChange }: P
               </div>
             ) : (
               children.map(child => {
-                const ageText = child.birth_year ? `${currentYear - child.birth_year}歳` : null
+                const age = child.birth_date ? calcAge(child.birth_date) : null
+                const ageText = age !== null ? `${age}歳` : null
                 const genderText = child.gender === 'boy' ? '男の子' : child.gender === 'girl' ? '女の子' : child.gender === 'other' ? 'その他' : null
                 const sub = [ageText, genderText].filter(Boolean).join('・')
                 return (
@@ -189,15 +197,14 @@ export default function SettingsScreen({ children, onBack, onChildrenChange }: P
 
             <div>
               <label className="text-xs font-bold mb-1.5 block" style={{ color: '#9e7b7b' }}>
-                生まれた年（任意）
+                生年月日（任意）
               </label>
               <input
-                value={form.birth_year}
-                onChange={e => setForm(f => ({ ...f, birth_year: e.target.value }))}
-                placeholder={`例：${currentYear - 8}`}
-                type="number"
-                min="2000"
-                max={currentYear}
+                value={form.birth_date}
+                onChange={e => setForm(f => ({ ...f, birth_date: e.target.value }))}
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                min="2000-01-01"
                 className="w-full rounded-2xl px-4 py-3 text-sm border-0 shadow-sm outline-none"
                 style={{ background: '#fff8f5', color: '#5c2d2d' }}
               />

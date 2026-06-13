@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
 
-  const { name, birth_year, gender } = await req.json();
+  const { name, birth_date, gender } = await req.json();
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
     return NextResponse.json({ error: '名前は必須です' }, { status: 400 });
   }
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     .insert({
       user_id: user.id,
       name: name.trim(),
-      birth_year: birth_year ?? null,
+      birth_date: birth_date ?? null,
       gender: gender ?? null,
     })
     .select()
