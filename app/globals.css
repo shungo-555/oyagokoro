@@ -66,3 +66,17 @@ body {
 .dot-1 { animation: pulse-dot 1.4s 0.0s ease-in-out infinite; }
 .dot-2 { animation: pulse-dot 1.4s 0.2s ease-in-out infinite; }
 .dot-3 { animation: pulse-dot 1.4s 0.4s ease-in-out infinite; }
+
+@keyframes flower-bloom {
+  0%   { transform: scale(0.85) rotate(-4deg); }
+  50%  { transform: scale(1.15) rotate(4deg); }
+  100% { transform: scale(0.85) rotate(-4deg); }
+}
+@keyframes msg-fade {
+  0%   { opacity: 0; transform: translateY(6px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.animate-flower  { animation: flower-bloom 2s ease-in-out infinite; }
+.animate-msg     { animation: msg-fade 2.8s ease both; }

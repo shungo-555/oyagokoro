@@ -70,6 +70,8 @@ export default function HistoryScreen({ onBack, onChildDetail, children }: Props
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [chartOpen, setChartOpen] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
@@ -223,23 +225,10 @@ export default function HistoryScreen({ onBack, onChildDetail, children }: Props
 
           {!editMode && (
             <>
-              {/* Stats: 合計 + 今月 + 連続日数 */}
-              <div className="grid grid-cols-2 gap-3 animate-fade-in">
-                <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.9)' }}>
-                  <div className="text-2xl font-bold" style={{ color: '#c06080' }}>{conversations.length}</div>
-                  <div className="text-xs mt-1" style={{ color: '#9e7b7b' }}>合計の振り返り</div>
-                </div>
-                <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.9)' }}>
-                  <div className="text-2xl font-bold" style={{ color: '#c06080' }}>
-                    {conversations.filter(c => c.created_at.startsWith(monthStr)).length}
-                  </div>
-                  <div className="text-xs mt-1" style={{ color: '#9e7b7b' }}>今月の振り返り</div>
-                </div>
-              </div>
-
-              {/* 連続日数バナー */}
+              {/* ── 連続日数ヒーロー ── */}
               <div className="rounded-2xl p-4 animate-fade-in"
-                   style={{ background: 'linear-gradient(135deg, rgba(165,214,167,0.25) 0%, rgba(128,222,234,0.25) 100%)', border: '1px solid rgba(165,214,167,0.4)' }}>
+                   style={{ background: 'linear-gradient(135deg, rgba(165,214,167,0.28) 0%, rgba(128,222,234,0.28) 100%)',
+                            border: '1px solid rgba(165,214,167,0.45)' }}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold tracking-widest mb-1" style={{ color: '#558b2f' }}>
@@ -260,105 +249,136 @@ export default function HistoryScreen({ onBack, onChildDetail, children }: Props
                 </div>
               </div>
 
-              {/* 子どもごとバーグラフ（タップで詳細へ） */}
-              {allChartItems.length > 0 && (
-                <div className="rounded-2xl p-4 animate-fade-in-2" style={{ background: 'rgba(255,255,255,0.9)' }}>
-                  <p className="text-xs font-bold tracking-widest mb-3" style={{ color: '#9e7b7b' }}>
-                    👶 子どもごと
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    {allChartItems.map(item => (
-                      <button
-                        key={item.id}
-                        className="flex items-center gap-2 w-full text-left transition-opacity active:opacity-70"
-                        onClick={() => item.child && onChildDetail(item.child)}
-                        disabled={!item.child}
-                      >
-                        <span className="text-xs w-14 text-right flex-shrink-0 truncate" style={{ color: '#7b4f4f' }}>
-                          {item.name}
-                        </span>
-                        <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: '#f5e8e8' }}>
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${(item.count / maxCount) * 100}%`, background: item.color }}
-                          />
-                        </div>
-                        <span className="text-xs w-4 text-right flex-shrink-0" style={{ color: '#9e7b7b' }}>{item.count}</span>
-                        {item.child && <span className="text-xs flex-shrink-0" style={{ color: '#c9a9a9' }}>›</span>}
-                      </button>
-                    ))}
+              {/* ── コンパクト統計 ── */}
+              <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                <div className="rounded-2xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.9)' }}>
+                  <div className="text-xl font-bold" style={{ color: '#c06080' }}>{conversations.length}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#9e7b7b' }}>合計の記録</div>
+                </div>
+                <div className="rounded-2xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.9)' }}>
+                  <div className="text-xl font-bold" style={{ color: '#c06080' }}>
+                    {conversations.filter(c => c.created_at.startsWith(monthStr)).length}
                   </div>
-                  {childCounts.length > 0 && (
-                    <p className="text-xs mt-3 text-center" style={{ color: '#c9a9a9' }}>
-                      名前をタップすると詳細を見られます
-                    </p>
+                  <div className="text-xs mt-0.5" style={{ color: '#9e7b7b' }}>今月の記録</div>
+                </div>
+              </div>
+
+              {/* ── 子どもごと（アコーディオン） ── */}
+              {allChartItems.length > 0 && (
+                <div className="rounded-2xl overflow-hidden animate-fade-in-2"
+                     style={{ background: 'rgba(255,255,255,0.9)' }}>
+                  <button
+                    onClick={() => setChartOpen(o => !o)}
+                    className="w-full flex items-center justify-between px-4 py-3 transition-opacity active:opacity-70"
+                  >
+                    <span className="text-xs font-bold tracking-widest" style={{ color: '#9e7b7b' }}>
+                      👶 子どもごと
+                    </span>
+                    <span className="text-xs" style={{ color: '#c9a9a9' }}>{chartOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {chartOpen && (
+                    <div className="px-4 pb-4 flex flex-col gap-2 border-t" style={{ borderColor: '#f5e8e8' }}>
+                      <div className="pt-3 flex flex-col gap-2">
+                        {allChartItems.map(item => (
+                          <button
+                            key={item.id}
+                            className="flex items-center gap-2 w-full text-left transition-opacity active:opacity-70"
+                            onClick={() => item.child && onChildDetail(item.child)}
+                            disabled={!item.child}
+                          >
+                            <span className="text-xs w-14 text-right flex-shrink-0 truncate" style={{ color: '#7b4f4f' }}>
+                              {item.name}
+                            </span>
+                            <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: '#f5e8e8' }}>
+                              <div className="h-full rounded-full transition-all duration-500"
+                                   style={{ width: `${(item.count / maxCount) * 100}%`, background: item.color }} />
+                            </div>
+                            <span className="text-xs w-4 text-right flex-shrink-0" style={{ color: '#9e7b7b' }}>{item.count}</span>
+                            {item.child && <span className="text-xs flex-shrink-0" style={{ color: '#c9a9a9' }}>›</span>}
+                          </button>
+                        ))}
+                      </div>
+                      {childCounts.length > 0 && (
+                        <p className="text-xs mt-1 text-center" style={{ color: '#c9a9a9' }}>
+                          名前をタップすると詳細を見られます
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* カレンダー */}
-              <div className="rounded-2xl p-4 animate-fade-in-3" style={{ background: 'rgba(255,255,255,0.9)' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <button onClick={prevMonth}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
-                    style={{ background: '#f5e8e8', color: '#c06080' }}>‹</button>
-                  <p className="text-xs font-bold" style={{ color: '#9e7b7b' }}>
-                    {viewYear}年{viewMonth + 1}月
-                  </p>
-                  <button onClick={nextMonth}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
-                    style={{ background: '#f5e8e8', color: '#c06080' }}>›</button>
-                </div>
-                <div className="grid grid-cols-7 mb-1">
-                  {['日', '月', '火', '水', '木', '金', '土'].map(d => (
-                    <div key={d} className="text-center text-xs" style={{ color: '#c9a9a9' }}>{d}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-y-1">
-                  {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
-                  {Array.from({ length: daysInMonth }).map((_, i) => {
-                    const day = i + 1
-                    const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                    const types = dateEntryTypes.get(dateStr)
-                    const hasIncident = types?.has('incident')
-                    const hasGood = types?.has('good')
-                    const isSelected = selectedDate === dateStr
-                    const isToday = dateStr === today.toISOString().slice(0, 10)
-
-                    // ドットの色: incident優先 > good
-                    let dotColor = hasIncident ? '#f48fb1' : hasGood ? '#66bb6a' : null
-                    if (isSelected) dotColor = 'rgba(255,255,255,0.8)'
-
-                    return (
-                      <button
-                        key={day}
-                        onClick={() => (types?.size ?? 0) > 0 && setSelectedDate(isSelected ? null : dateStr)}
-                        className="flex flex-col items-center py-1 rounded-xl transition-colors"
-                        style={isSelected ? { background: '#f48fb1' } : {}}
-                      >
-                        <span className="text-xs font-medium" style={{
-                          color: isSelected ? '#fff' : isToday ? '#c06080' : '#7b4f4f',
-                          fontWeight: isToday ? '700' : undefined,
-                        }}>{day}</span>
-                        {dotColor && (
-                          <div className="w-1.5 h-1.5 rounded-full mt-0.5"
-                            style={{ background: dotColor }} />
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-                {/* カレンダー凡例 */}
-                <div className="flex gap-4 justify-center mt-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full" style={{ background: '#f48fb1' }} />
-                    <span className="text-xs" style={{ color: '#c9a9a9' }}>怒ってしまった</span>
+              {/* ── カレンダー（アコーディオン） ── */}
+              <div className="rounded-2xl overflow-hidden animate-fade-in-3"
+                   style={{ background: 'rgba(255,255,255,0.9)' }}>
+                <button
+                  onClick={() => setCalendarOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 transition-opacity active:opacity-70"
+                >
+                  <span className="text-xs font-bold tracking-widest" style={{ color: '#9e7b7b' }}>
+                    📅 カレンダー
+                    {selectedDate && <span className="ml-2 font-normal" style={{ color: '#c06080' }}>
+                      {selectedDate.replace(/-/g, '/')} 絞込中
+                    </span>}
+                  </span>
+                  <span className="text-xs" style={{ color: '#c9a9a9' }}>{calendarOpen ? '▲' : '▼'}</span>
+                </button>
+                {calendarOpen && (
+                  <div className="px-4 pb-4 border-t" style={{ borderColor: '#f5e8e8' }}>
+                    <div className="flex items-center justify-between mt-3 mb-2">
+                      <button onClick={prevMonth}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
+                        style={{ background: '#f5e8e8', color: '#c06080' }}>‹</button>
+                      <p className="text-xs font-bold" style={{ color: '#9e7b7b' }}>
+                        {viewYear}年{viewMonth + 1}月
+                      </p>
+                      <button onClick={nextMonth}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
+                        style={{ background: '#f5e8e8', color: '#c06080' }}>›</button>
+                    </div>
+                    <div className="grid grid-cols-7 mb-1">
+                      {['日', '月', '火', '水', '木', '金', '土'].map(d => (
+                        <div key={d} className="text-center text-xs" style={{ color: '#c9a9a9' }}>{d}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-y-1">
+                      {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+                      {Array.from({ length: daysInMonth }).map((_, i) => {
+                        const day = i + 1
+                        const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                        const types = dateEntryTypes.get(dateStr)
+                        const hasIncident = types?.has('incident')
+                        const hasGood = types?.has('good')
+                        const isSelected = selectedDate === dateStr
+                        const isToday = dateStr === today.toISOString().slice(0, 10)
+                        let dotColor = hasIncident ? '#f48fb1' : hasGood ? '#66bb6a' : null
+                        if (isSelected) dotColor = 'rgba(255,255,255,0.8)'
+                        return (
+                          <button key={day}
+                            onClick={() => (types?.size ?? 0) > 0 && setSelectedDate(isSelected ? null : dateStr)}
+                            className="flex flex-col items-center py-1 rounded-xl transition-colors"
+                            style={isSelected ? { background: '#f48fb1' } : {}}>
+                            <span className="text-xs font-medium" style={{
+                              color: isSelected ? '#fff' : isToday ? '#c06080' : '#7b4f4f',
+                              fontWeight: isToday ? '700' : undefined,
+                            }}>{day}</span>
+                            {dotColor && <div className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ background: dotColor }} />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="flex gap-4 justify-center mt-3">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full" style={{ background: '#f48fb1' }} />
+                        <span className="text-xs" style={{ color: '#c9a9a9' }}>怒ってしまった</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full" style={{ background: '#66bb6a' }} />
+                        <span className="text-xs" style={{ color: '#c9a9a9' }}>よかったこと</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full" style={{ background: '#66bb6a' }} />
-                    <span className="text-xs" style={{ color: '#c9a9a9' }}>よかったこと</span>
-                  </div>
-                </div>
+                )}
               </div>
             </>
           )}
