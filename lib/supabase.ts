@@ -19,6 +19,7 @@ export interface Conversation {
   tip: string;
   category: string | null;
   child_id: string | null;
+  entry_type: 'incident' | 'good';
   created_at: string;
 }
 

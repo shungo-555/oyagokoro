@@ -81,7 +81,33 @@
 
 ---
 
-## v5 機能案
+## v5 完了（2026-06-24）
+
+### やったこと
+
+- **A. ポジティブ記録 + 連続日数**
+  - `conversations.entry_type text default 'incident'` カラム追加（migration_v5.sql）
+  - HomeScreen に「よかったことを記録」ボタン追加（グリーンのボタン）
+  - InputScreen に `entryType` props追加（タイトル・プレースホルダー・ボタン色を切り替え）
+  - ResponseScreen に `entryType` props追加（good版は短い承認メッセージのみ）
+  - Gemini に `getGoodAIResponse()`（軽量）と `getChildTrendComment()` を追加
+  - `/api/chat` が `entry_type` を受け取り、good/incident で処理分岐
+  - HistoryScreen に連続日数バナー（現在の連続日数 + 最長記録）
+  - カレンダーの色分け：incident=ピンク、good=緑 + 凡例追加
+  - ConversationCard に `よかった` バッジ表示
+
+- **B. 子供ごとの詳細振り返り**
+  - HistoryScreen の子どもバーをタップ → ChildDetailScreen へ遷移
+  - ChildDetailScreen（新規）: 子供プロフィール、記録比率グラフ、AIの傾向コメント、会話一覧
+  - `/api/child-trend` エンドポイント追加（Gemini でinsightを要約）
+  - ClientApp に `child-detail` 画面追加、ChildDetailScreenWrapper でhistory fetchを内包
+
+### DB マイグレーション（Supabase で実行が必要）
+- `ai_working/migration_v5.sql` — conversations に entry_type カラム追加
+
+---
+
+## v5 機能案（元の計画）
 
 ### A. ポジティブ記録 ＋ 連続日数（旧 v4 計画から繰越）
 

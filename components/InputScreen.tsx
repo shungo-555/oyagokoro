@@ -5,15 +5,26 @@ import { useState } from 'react'
 interface Props {
   onBack: () => void;
   onSubmit: (text: string) => void;
+  entryType?: 'incident' | 'good';
 }
 
 const MAX_LENGTH = 500;
 
-const PLACEHOLDER = `例：8歳の男の子に、宿題のことでついきつい言い方をしてしまいました…`;
-
-export default function InputScreen({ onBack, onSubmit }: Props) {
+export default function InputScreen({ onBack, onSubmit, entryType = 'incident' }: Props) {
   const [text, setText] = useState('');
   const remaining = MAX_LENGTH - text.length;
+
+  const isGood = entryType === 'good';
+
+  const title = isGood ? '子どもとの\nよかった瞬間は？' : '何があったか、\n話してください';
+  const subtitle = isGood
+    ? 'どんな小さなことでも記録できます。\n上手くできたこと、穏やかに過ごせた瞬間。'
+    : 'どんな小さなことでも構いません。\nあなたの言葉のまま、教えてください。';
+  const placeholder = isGood
+    ? '例：朝、落ち着いて話を聞けた。ほめることができた…'
+    : '例：8歳の男の子に、宿題のことでついきつい言い方をしてしまいました…';
+  const buttonLabel = isGood ? '記録する →' : 'AIに相談する →';
+  const navLabel = isGood ? 'よかったことを記録' : 'ミスったな…';
 
   return (
     <div className="flex flex-col min-h-full px-5 py-8"
@@ -28,17 +39,16 @@ export default function InputScreen({ onBack, onSubmit }: Props) {
         >
           ←
         </button>
-        <span className="text-sm font-medium" style={{ color: '#9e7b7b' }}>ミスったな…</span>
+        <span className="text-sm font-medium" style={{ color: '#9e7b7b' }}>{navLabel}</span>
       </div>
 
       {/* question */}
       <div className="mb-6 animate-fade-in-2">
-        <h2 className="text-2xl font-bold leading-snug" style={{ color: '#5c2d2d' }}>
-          何があったか、<br />話してください
+        <h2 className="text-2xl font-bold leading-snug whitespace-pre-line" style={{ color: '#5c2d2d' }}>
+          {title}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed" style={{ color: '#9e7b7b' }}>
-          どんな小さなことでも構いません。<br />
-          あなたの言葉のまま、教えてください。
+        <p className="mt-2 text-sm leading-relaxed whitespace-pre-line" style={{ color: '#9e7b7b' }}>
+          {subtitle}
         </p>
       </div>
 
@@ -48,7 +58,7 @@ export default function InputScreen({ onBack, onSubmit }: Props) {
           <textarea
             value={text}
             onChange={e => setText(e.target.value.slice(0, MAX_LENGTH))}
-            placeholder={PLACEHOLDER}
+            placeholder={placeholder}
             className="w-full h-full min-h-48 rounded-3xl p-5 text-base leading-relaxed resize-none border-0 shadow-md"
             style={{
               background: 'rgba(255,255,255,0.9)',
@@ -68,15 +78,19 @@ export default function InputScreen({ onBack, onSubmit }: Props) {
           disabled={text.trim().length === 0}
           className="w-full h-14 rounded-2xl text-base font-bold transition-all active:scale-95 disabled:opacity-40"
           style={text.trim().length > 0 ? {
-            background: 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)',
+            background: isGood
+              ? 'linear-gradient(135deg, #a5d6a7 0%, #80deea 100%)'
+              : 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)',
             color: '#fff',
-            boxShadow: '0 6px 24px rgba(206,147,216,0.45)',
+            boxShadow: isGood
+              ? '0 6px 24px rgba(165,214,167,0.45)'
+              : '0 6px 24px rgba(206,147,216,0.45)',
           } : {
             background: '#e0cccc',
             color: '#fff',
           }}
         >
-          AIに相談する →
+          {buttonLabel}
         </button>
       </div>
 

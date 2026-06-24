@@ -4,7 +4,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 type ChildRef = { name: string };
 
-function buildSystemPrompt(children?: ChildRef[]) {
+function buildIncidentPrompt(children?: ChildRef[]) {
   const hasChildren = children && children.length > 0;
   const childList = hasChildren ? children.map(c => c.name).join('、') : '';
 
@@ -31,6 +31,28 @@ function buildSystemPrompt(children?: ChildRef[]) {
 - 実践しやすい言葉かけの具体例を出す`;
 }
 
+const GOOD_SYSTEM_PROMPT = `あなたは「おやごころ」というアプリの感情サポートAIです。
+子育てのよかった瞬間を記録しようとしている親に、温かい承認メッセージを返します。
+
+ユーザーが話してくれたことに対して、以下のJSON形式だけで返してください（コードブロック不要）：
+{
+  "message": "温かく短い承認メッセージ（2〜3文。その行動を具体的にほめ、続けられるよう後押しする）"
+}
+
+注意：
+- ポジティブで温かいトーンで
+- 具体的な行動をほめる
+- 完璧じゃなくてもいいと伝える`;
+
+const CHILD_TREND_PROMPT = `あなたは「おやごころ」というアプリの感情サポートAIです。
+以下は、ある子どもに関する最近の振り返り記録です。
+この子との関わりについて、親への温かいフィードバックを一言で返してください。
+
+以下のJSON形式だけで返してください（コードブロック不要）：
+{
+  "trend": "最近の傾向と励ましのひとこと（2〜3文。具体的かつポジティブに）"
+}`;
+
 export interface AIResponse {
   empathy: string;
   alternatives: string[];
@@ -39,13 +61,21 @@ export interface AIResponse {
   detected_child_name: string | null;
 }
 
+export interface GoodAIResponse {
+  message: string;
+}
+
+export interface ChildTrendResponse {
+  trend: string;
+}
+
 export async function getAIResponse(
   userInput: string,
   children?: ChildRef[]
 ): Promise<AIResponse> {
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    systemInstruction: buildSystemPrompt(children),
+    systemInstruction: buildIncidentPrompt(children),
   });
 
   const result = await model.generateContent(userInput);
@@ -62,4 +92,37 @@ export async function getAIResponse(
     tip: parsed.tip,
     detected_child_name: parsed.detected_child_name ?? null,
   };
+}
+
+export async function getGoodAIResponse(userInput: string): Promise<GoodAIResponse> {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: GOOD_SYSTEM_PROMPT,
+  });
+
+  const result = await model.generateContent(userInput);
+  const text = result.response.text();
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('AIの応答形式が不正です');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  return { message: parsed.message };
+}
+
+export async function getChildTrendComment(recentInsights: string[]): Promise<ChildTrendResponse> {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: CHILD_TREND_PROMPT,
+  });
+
+  const content = recentInsights.map((ins, i) => `記録${i + 1}: ${ins}`).join('\n');
+  const result = await model.generateContent(content);
+  const text = result.response.text();
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return { trend: '' };
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  return { trend: parsed.trend ?? '' };
 }

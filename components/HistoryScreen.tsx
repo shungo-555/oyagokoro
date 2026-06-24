@@ -5,6 +5,7 @@ import type { Conversation, Child } from '@/lib/supabase'
 
 interface Props {
   onBack: () => void
+  onChildDetail: (child: Child) => void
   children: Child[]
 }
 
@@ -23,7 +24,45 @@ interface ConfirmState {
   message: string
 }
 
-export default function HistoryScreen({ onBack, children }: Props) {
+function calcStreak(conversations: Conversation[]): { current: number; best: number } {
+  const incidentDates = [
+    ...new Set(
+      conversations
+        .filter(c => c.entry_type === 'incident')
+        .map(c => c.created_at.slice(0, 10))
+    ),
+  ].sort()
+
+  if (incidentDates.length === 0) {
+    // incident 記録が一切ない場合
+    const allDates = [...new Set(conversations.map(c => c.created_at.slice(0, 10)))].sort()
+    if (allDates.length === 0) return { current: 0, best: 0 }
+    const firstDate = new Date(allDates[0])
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const days = Math.floor((today.getTime() - firstDate.getTime()) / 86400000) + 1
+    return { current: days, best: days }
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const lastIncident = new Date(incidentDates[incidentDates.length - 1])
+  lastIncident.setHours(0, 0, 0, 0)
+  const current = Math.floor((today.getTime() - lastIncident.getTime()) / 86400000)
+
+  // 最長記録: incident 間の最大空白日数
+  let best = current
+  for (let i = 0; i < incidentDates.length - 1; i++) {
+    const a = new Date(incidentDates[i])
+    const b = new Date(incidentDates[i + 1])
+    const gap = Math.floor((b.getTime() - a.getTime()) / 86400000) - 1
+    if (gap > best) best = gap
+  }
+
+  return { current, best }
+}
+
+export default function HistoryScreen({ onBack, onChildDetail, children }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -47,7 +86,14 @@ export default function HistoryScreen({ onBack, children }: Props) {
 
   const childMap = new Map(children.map((c, i) => [c.id, { name: c.name, color: CHILD_COLORS[i % CHILD_COLORS.length] }]))
 
-  const daysWithEntries = new Set(conversations.map(c => c.created_at.slice(0, 10)))
+  // カレンダー用: 日付 → entry_type のセット
+  const dateEntryTypes = new Map<string, Set<string>>()
+  for (const c of conversations) {
+    const date = c.created_at.slice(0, 10)
+    if (!dateEntryTypes.has(date)) dateEntryTypes.set(date, new Set())
+    dateEntryTypes.get(date)!.add(c.entry_type)
+  }
+
   const monthStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`
 
   const childCounts = children
@@ -56,6 +102,7 @@ export default function HistoryScreen({ onBack, children }: Props) {
       name: child.name,
       color: CHILD_COLORS[i % CHILD_COLORS.length],
       count: conversations.filter(c => c.child_id === child.id).length,
+      child,
     }))
     .filter(c => c.count > 0)
     .sort((a, b) => b.count - a.count)
@@ -63,7 +110,7 @@ export default function HistoryScreen({ onBack, children }: Props) {
   const unknownCount = conversations.filter(c => !c.child_id).length
   const allChartItems = [
     ...childCounts,
-    ...(unknownCount > 0 ? [{ id: '__unknown__', name: '未設定', color: UNKNOWN_COLOR, count: unknownCount }] : []),
+    ...(unknownCount > 0 ? [{ id: '__unknown__', name: '未設定', color: UNKNOWN_COLOR, count: unknownCount, child: null }] : []),
   ]
   const maxCount = Math.max(...allChartItems.map(c => c.count), 1)
 
@@ -73,6 +120,8 @@ export default function HistoryScreen({ onBack, children }: Props) {
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth)
   const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
+
+  const streak = calcStreak(conversations)
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
@@ -95,23 +144,14 @@ export default function HistoryScreen({ onBack, children }: Props) {
 
   const selectAll = () => setSelectedIds(new Set(filtered.map(c => c.id)))
   const clearAll = () => setSelectedIds(new Set())
-
-  const enterEditMode = () => {
-    setEditMode(true)
-    setSelectedIds(new Set())
-  }
-  const exitEditMode = () => {
-    setEditMode(false)
-    setSelectedIds(new Set())
-  }
+  const enterEditMode = () => { setEditMode(true); setSelectedIds(new Set()) }
+  const exitEditMode = () => { setEditMode(false); setSelectedIds(new Set()) }
 
   const requestDeleteSingle = (id: string) => {
     setConfirm({ ids: [id], message: 'この振り返りを削除しますか？' })
   }
-
   const requestDeleteSelected = () => {
-    const count = selectedIds.size
-    setConfirm({ ids: [...selectedIds], message: `${count}件の振り返りを削除しますか？` })
+    setConfirm({ ids: [...selectedIds], message: `${selectedIds.size}件の振り返りを削除しますか？` })
   }
 
   const executeDelete = async () => {
@@ -158,21 +198,11 @@ export default function HistoryScreen({ onBack, children }: Props) {
         </div>
         {conversations.length > 0 && (
           editMode ? (
-            <button
-              onClick={exitEditMode}
-              className="text-sm px-4 py-1.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.8)', color: '#c06080' }}
-            >
-              完了
-            </button>
+            <button onClick={exitEditMode} className="text-sm px-4 py-1.5 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.8)', color: '#c06080' }}>完了</button>
           ) : (
-            <button
-              onClick={enterEditMode}
-              className="text-sm px-4 py-1.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.8)', color: '#9e7b7b' }}
-            >
-              編集
-            </button>
+            <button onClick={enterEditMode} className="text-sm px-4 py-1.5 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.8)', color: '#9e7b7b' }}>編集</button>
           )
         )}
       </div>
@@ -191,9 +221,9 @@ export default function HistoryScreen({ onBack, children }: Props) {
       ) : (
         <div className="flex flex-col gap-4 px-5 pb-32 overflow-y-auto">
 
-          {/* Stats */}
           {!editMode && (
             <>
+              {/* Stats: 合計 + 今月 + 連続日数 */}
               <div className="grid grid-cols-2 gap-3 animate-fade-in">
                 <div className="rounded-2xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.9)' }}>
                   <div className="text-2xl font-bold" style={{ color: '#c06080' }}>{conversations.length}</div>
@@ -207,6 +237,30 @@ export default function HistoryScreen({ onBack, children }: Props) {
                 </div>
               </div>
 
+              {/* 連続日数バナー */}
+              <div className="rounded-2xl p-4 animate-fade-in"
+                   style={{ background: 'linear-gradient(135deg, rgba(165,214,167,0.25) 0%, rgba(128,222,234,0.25) 100%)', border: '1px solid rgba(165,214,167,0.4)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold tracking-widest mb-1" style={{ color: '#558b2f' }}>
+                      怒らなかった日
+                    </p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold" style={{ color: '#388e3c' }}>{streak.current}</span>
+                      <span className="text-sm" style={{ color: '#558b2f' }}>日連続</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs" style={{ color: '#9e7b7b' }}>最長記録</p>
+                    <div className="flex items-baseline gap-1 justify-end">
+                      <span className="text-xl font-bold" style={{ color: '#66bb6a' }}>{streak.best}</span>
+                      <span className="text-xs" style={{ color: '#9e7b7b' }}>日</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 子どもごとバーグラフ（タップで詳細へ） */}
               {allChartItems.length > 0 && (
                 <div className="rounded-2xl p-4 animate-fade-in-2" style={{ background: 'rgba(255,255,255,0.9)' }}>
                   <p className="text-xs font-bold tracking-widest mb-3" style={{ color: '#9e7b7b' }}>
@@ -214,7 +268,12 @@ export default function HistoryScreen({ onBack, children }: Props) {
                   </p>
                   <div className="flex flex-col gap-2">
                     {allChartItems.map(item => (
-                      <div key={item.id} className="flex items-center gap-2">
+                      <button
+                        key={item.id}
+                        className="flex items-center gap-2 w-full text-left transition-opacity active:opacity-70"
+                        onClick={() => item.child && onChildDetail(item.child)}
+                        disabled={!item.child}
+                      >
                         <span className="text-xs w-14 text-right flex-shrink-0 truncate" style={{ color: '#7b4f4f' }}>
                           {item.name}
                         </span>
@@ -225,12 +284,19 @@ export default function HistoryScreen({ onBack, children }: Props) {
                           />
                         </div>
                         <span className="text-xs w-4 text-right flex-shrink-0" style={{ color: '#9e7b7b' }}>{item.count}</span>
-                      </div>
+                        {item.child && <span className="text-xs flex-shrink-0" style={{ color: '#c9a9a9' }}>›</span>}
+                      </button>
                     ))}
                   </div>
+                  {childCounts.length > 0 && (
+                    <p className="text-xs mt-3 text-center" style={{ color: '#c9a9a9' }}>
+                      名前をタップすると詳細を見られます
+                    </p>
+                  )}
                 </div>
               )}
 
+              {/* カレンダー */}
               <div className="rounded-2xl p-4 animate-fade-in-3" style={{ background: 'rgba(255,255,255,0.9)' }}>
                 <div className="flex items-center justify-between mb-3">
                   <button onClick={prevMonth}
@@ -253,13 +319,20 @@ export default function HistoryScreen({ onBack, children }: Props) {
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1
                     const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                    const hasEntry = daysWithEntries.has(dateStr)
+                    const types = dateEntryTypes.get(dateStr)
+                    const hasIncident = types?.has('incident')
+                    const hasGood = types?.has('good')
                     const isSelected = selectedDate === dateStr
                     const isToday = dateStr === today.toISOString().slice(0, 10)
+
+                    // ドットの色: incident優先 > good
+                    let dotColor = hasIncident ? '#f48fb1' : hasGood ? '#66bb6a' : null
+                    if (isSelected) dotColor = 'rgba(255,255,255,0.8)'
+
                     return (
                       <button
                         key={day}
-                        onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                        onClick={() => (types?.size ?? 0) > 0 && setSelectedDate(isSelected ? null : dateStr)}
                         className="flex flex-col items-center py-1 rounded-xl transition-colors"
                         style={isSelected ? { background: '#f48fb1' } : {}}
                       >
@@ -267,13 +340,24 @@ export default function HistoryScreen({ onBack, children }: Props) {
                           color: isSelected ? '#fff' : isToday ? '#c06080' : '#7b4f4f',
                           fontWeight: isToday ? '700' : undefined,
                         }}>{day}</span>
-                        {hasEntry && (
+                        {dotColor && (
                           <div className="w-1.5 h-1.5 rounded-full mt-0.5"
-                            style={{ background: isSelected ? 'rgba(255,255,255,0.8)' : '#f48fb1' }} />
+                            style={{ background: dotColor }} />
                         )}
                       </button>
                     )
                   })}
+                </div>
+                {/* カレンダー凡例 */}
+                <div className="flex gap-4 justify-center mt-3">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ background: '#f48fb1' }} />
+                    <span className="text-xs" style={{ color: '#c9a9a9' }}>怒ってしまった</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ background: '#66bb6a' }} />
+                    <span className="text-xs" style={{ color: '#c9a9a9' }}>よかったこと</span>
+                  </div>
                 </div>
               </div>
             </>
@@ -283,11 +367,9 @@ export default function HistoryScreen({ onBack, children }: Props) {
           <div className="flex flex-col gap-3 animate-fade-in-4">
             {editMode && (
               <div className="flex items-center justify-between px-1">
-                <button
-                  onClick={allFilteredSelected ? clearAll : selectAll}
+                <button onClick={allFilteredSelected ? clearAll : selectAll}
                   className="text-xs px-3 py-1.5 rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.8)', color: '#c06080' }}
-                >
+                  style={{ background: 'rgba(255,255,255,0.8)', color: '#c06080' }}>
                   {allFilteredSelected ? '全解除' : '全選択'}
                 </button>
                 <span className="text-xs" style={{ color: '#9e7b7b' }}>
@@ -331,10 +413,7 @@ export default function HistoryScreen({ onBack, children }: Props) {
               background: 'linear-gradient(135deg, #ef9a9a 0%, #e57373 100%)',
               color: '#fff',
               boxShadow: '0 4px 16px rgba(229,115,115,0.4)',
-            } : {
-              background: '#f5e8e8',
-              color: '#c9a9a9',
-            }}
+            } : { background: '#f5e8e8', color: '#c9a9a9' }}
           >
             {selectedIds.size > 0 ? `${selectedIds.size}件を削除する` : '削除する記録を選んでください'}
           </button>
@@ -351,25 +430,15 @@ export default function HistoryScreen({ onBack, children }: Props) {
             <p className="text-base font-bold text-center" style={{ color: '#5c2d2d' }}>
               {confirm.message}
             </p>
-            <p className="text-xs text-center" style={{ color: '#9e7b7b' }}>
-              この操作は取り消せません。
-            </p>
-            <button
-              onClick={executeDelete}
-              disabled={deleting}
+            <p className="text-xs text-center" style={{ color: '#9e7b7b' }}>この操作は取り消せません。</p>
+            <button onClick={executeDelete} disabled={deleting}
               className="w-full h-13 rounded-2xl text-sm font-bold py-3.5 transition-all active:scale-95 disabled:opacity-60"
-              style={{
-                background: 'linear-gradient(135deg, #ef9a9a 0%, #e57373 100%)',
-                color: '#fff',
-              }}
-            >
+              style={{ background: 'linear-gradient(135deg, #ef9a9a 0%, #e57373 100%)', color: '#fff' }}>
               {deleting ? '削除中…' : '削除する'}
             </button>
-            <button
-              onClick={() => !deleting && setConfirm(null)}
+            <button onClick={() => !deleting && setConfirm(null)}
               className="w-full h-12 rounded-2xl text-sm transition-all active:scale-95"
-              style={{ background: '#f5e8e8', color: '#9e7b7b' }}
-            >
+              style={{ background: '#f5e8e8', color: '#9e7b7b' }}>
               キャンセル
             </button>
           </div>
@@ -398,6 +467,7 @@ function ConversationCard({
   const d = new Date(c.created_at)
   const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   const childInfo = c.child_id ? childMap.get(c.child_id) : null
+  const isGood = c.entry_type === 'good'
 
   return (
     <div
@@ -414,13 +484,8 @@ function ConversationCard({
         <div className="flex items-start gap-3">
           {editMode && (
             <div className="flex-shrink-0 mt-0.5">
-              <div
-                className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                style={{
-                  borderColor: selected ? '#f48fb1' : '#c9a9a9',
-                  background: selected ? '#f48fb1' : 'transparent',
-                }}
-              >
+              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                style={{ borderColor: selected ? '#f48fb1' : '#c9a9a9', background: selected ? '#f48fb1' : 'transparent' }}>
                 {selected && <span className="text-white text-xs leading-none">✓</span>}
               </div>
             </div>
@@ -433,12 +498,20 @@ function ConversationCard({
           </div>
           {!editMode && (
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              {childInfo && (
-                <span className="text-xs px-2 py-0.5 rounded-full text-white"
-                  style={{ background: childInfo.color }}>
-                  {childInfo.name}
-                </span>
-              )}
+              <div className="flex items-center gap-1">
+                {isGood && (
+                  <span className="text-xs px-2 py-0.5 rounded-full text-white"
+                    style={{ background: '#66bb6a' }}>
+                    よかった
+                  </span>
+                )}
+                {childInfo && (
+                  <span className="text-xs px-2 py-0.5 rounded-full text-white"
+                    style={{ background: childInfo.color }}>
+                    {childInfo.name}
+                  </span>
+                )}
+              </div>
               <span className="text-xs" style={{ color: '#c9a9a9' }}>{open ? '▲' : '▼'}</span>
             </div>
           )}
@@ -447,24 +520,33 @@ function ConversationCard({
 
       {!editMode && open && (
         <div className="px-4 pb-4 flex flex-col gap-3 border-t" style={{ borderColor: '#f5e8e8' }}>
-          <div className="pt-3">
-            <p className="text-xs font-bold mb-1" style={{ color: '#64b5f6' }}>💙 AIの共感</p>
-            <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.empathy}</p>
-          </div>
-          <div>
-            <p className="text-xs font-bold mb-1" style={{ color: '#ab47bc' }}>💬 こう言えばよかったかも</p>
-            {(c.alternatives as string[]).map((alt, i) => (
-              <p key={i} className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>・{alt}</p>
-            ))}
-          </div>
-          <div>
-            <p className="text-xs font-bold mb-1" style={{ color: '#ff8a65' }}>✨ なぜそうなったか</p>
-            <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.insight}</p>
-          </div>
-          <div>
-            <p className="text-xs font-bold mb-1" style={{ color: '#66bb6a' }}>🌱 次のために</p>
-            <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.tip}</p>
-          </div>
+          {isGood ? (
+            <div className="pt-3">
+              <p className="text-xs font-bold mb-1" style={{ color: '#66bb6a' }}>✨ よかったこと</p>
+              <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.empathy}</p>
+            </div>
+          ) : (
+            <>
+              <div className="pt-3">
+                <p className="text-xs font-bold mb-1" style={{ color: '#64b5f6' }}>💙 AIの共感</p>
+                <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.empathy}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold mb-1" style={{ color: '#ab47bc' }}>💬 こう言えばよかったかも</p>
+                {(c.alternatives as string[]).map((alt, i) => (
+                  <p key={i} className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>・{alt}</p>
+                ))}
+              </div>
+              <div>
+                <p className="text-xs font-bold mb-1" style={{ color: '#ff8a65' }}>✨ なぜそうなったか</p>
+                <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.insight}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold mb-1" style={{ color: '#66bb6a' }}>🌱 次のために</p>
+                <p className="text-xs leading-relaxed" style={{ color: '#5c2d2d' }}>{c.tip}</p>
+              </div>
+            </>
+          )}
           <button
             onClick={onDeleteSingle}
             className="mt-1 w-full py-2.5 rounded-xl text-xs font-medium transition-all active:scale-95"
