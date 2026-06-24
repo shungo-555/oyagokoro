@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAIResponse, getGoodAIResponse } from '@/lib/gemini';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
+// Pro プランでは60秒、Hobby プランでは10秒まで延長を試みる
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const { userInput, child_id: providedChildId, entry_type } = await req.json();

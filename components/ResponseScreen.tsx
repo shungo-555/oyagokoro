@@ -106,7 +106,7 @@ export default function ResponseScreen({ userInput, childId, entryType = 'incide
       {/* nav */}
       <div className="flex items-center gap-3 mb-6 animate-fade-in">
         <button
-          onClick={onBack}
+          onClick={error ? onRetry : onBack}
           className="w-10 h-10 rounded-full flex items-center justify-center"
           style={{ background: 'rgba(255,255,255,0.8)', color: '#c06080' }}
         >
@@ -121,8 +121,10 @@ export default function ResponseScreen({ userInput, childId, entryType = 'incide
         <LoadingFlower isGood={isGood} />
       ) : error ? (
         <div className="flex flex-col items-center gap-6 py-16 text-center">
-          <div className="text-4xl">😔</div>
-          <p className="text-sm leading-relaxed" style={{ color: '#9e7b7b' }}>{error}</p>
+          <div className="text-4xl">🌿</div>
+          <p className="text-sm font-bold" style={{ color: '#5c2d2d' }}>応答に失敗しました</p>
+          <p className="text-xs leading-relaxed" style={{ color: '#9e7b7b' }}>{error}</p>
+          <p className="text-xs" style={{ color: '#c9a9a9' }}>入力した文章はそのまま残っています</p>
           <button onClick={onRetry} className="w-full h-12 rounded-2xl text-sm font-bold"
             style={{ background: 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)', color: '#fff' }}>
             もう一度試す

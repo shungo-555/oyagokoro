@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getChildTrendComment } from '@/lib/gemini';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   try {
     const childId = req.nextUrl.searchParams.get('child_id');
