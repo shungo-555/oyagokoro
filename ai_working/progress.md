@@ -102,8 +102,78 @@
   - `/api/child-trend` エンドポイント追加（Gemini でinsightを要約）
   - ClientApp に `child-detail` 画面追加、ChildDetailScreenWrapper でhistory fetchを内包
 
-### DB マイグレーション（Supabase で実行が必要）
+- **C. AI信頼性の改善**
+  - `thinkingBudget: 0` で Gemini 2.5 Flash の thinking モードを無効化（20〜40秒 → 3〜5秒）
+  - `export const maxDuration = 60` を `/api/chat`・`/api/child-trend` に追加
+  - `parseJSON()` でマークダウンコードブロック混入を安全に除去
+  - `withRetry()` で失敗時に1回自動リトライ（`lib/gemini.ts`）
+
+- **D. テキスト消失バグの修正**
+  - `InputScreen` に `initialText?: string` propを追加
+  - `ClientApp` が `userInput` state を保持し、`initialText={userInput}` で渡す
+  - 新規開始（handleStartIncident/handleStartGood）時のみ `userInput` をクリア
+  - エラー画面に「入力した文章はそのまま残っています」メッセージ追加
+
+- **E. モバイルUX・段階的開示**
+  - `LoadingFlower` コンポーネント：花絵文字アニメーション + ローテーションメッセージ
+  - `app/globals.css` に `flower-bloom`・`msg-fade` keyframes 追加
+  - incident フロー結果画面の構成変更：
+    - 「あなたの気持ち」（empathy）→ ヒーローカードとして常時表示
+    - 「こう言えばよかったかも」（alternatives）→ 常時表示（empathyの直後）
+    - 「なぜそうなったか」（insight）→ 個別トグル、デフォルト折りたたみ
+    - 「次のために」（tip）→ 個別トグル、デフォルト折りたたみ
+
+### DB マイグレーション（Supabase で実行済み）
 - `ai_working/migration_v5.sql` — conversations に entry_type カラム追加
+
+---
+
+## v6 提案（次回開始用）
+
+### 優先度 高
+
+**A. Supabase Auth の強化（最優先）**
+- 現状は Google OAuth 済みだが RLS が不完全な可能性あり
+- 全テーブルの RLS ポリシーを監査・補完
+- セッション切れ時のリダイレクト処理改善
+
+**B. プッシュ通知 / PWA 化**
+- Web Push API + Service Worker で毎晩リマインダー
+- Vercel Cron か Supabase Edge Function で定時送信
+- `push_subscriptions` テーブル追加が必要
+- 「○日連続！今日はどうでした？」など連続記録を活かした文言
+
+**C. 音声入力対応**
+- Web Speech API（ブラウザ標準）でマイクボタンを InputScreen に追加
+- 子育て中は手が離せないシーンが多く、ニーズ高
+- DB変更なし、フロントのみの実装
+
+### 優先度 中
+
+**D. 月次サマリー**
+- HistoryScreen に「今月のまとめを見る」ボタン追加
+- Gemini にその月の会話一覧を渡して要約・成長ポイントを生成
+- DB変更なし
+
+**E. ストリーク強化・ゲーミフィケーション**
+- 「7日連続達成！」などのマイルストーン通知
+- バッジやアチーブメント表示
+- 現在の `calcStreak()` を拡張するだけで実装可能
+
+**F. テンプレート入力**
+- InputScreen に「よくあるシーン」タップで入力補助
+  - 「宿題でキレた」「食事中に怒鳴った」「兄弟喧嘩に巻き込まれた」等
+- 入力ハードルを下げて継続率向上
+
+### 優先度 低（将来）
+
+**G. 初回オンボーディング**
+- アプリコンセプト（「振り返れる親はいい親」）を最初に伝えるチュートリアル
+- 子供登録への誘導
+
+**H. パートナー共有**
+- 招待コードで家族と記録を共有
+- `families` テーブル新設が必要、設計複雑
 
 ---
 
