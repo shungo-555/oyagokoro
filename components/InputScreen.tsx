@@ -6,12 +6,13 @@ interface Props {
   onBack: () => void;
   onSubmit: (text: string) => void;
   entryType?: 'incident' | 'good';
+  initialText?: string;
 }
 
 const MAX_LENGTH = 500;
 
-export default function InputScreen({ onBack, onSubmit, entryType = 'incident' }: Props) {
-  const [text, setText] = useState('');
+export default function InputScreen({ onBack, onSubmit, entryType = 'incident', initialText = '' }: Props) {
+  const [text, setText] = useState(initialText);
   const remaining = MAX_LENGTH - text.length;
 
   const isGood = entryType === 'good';

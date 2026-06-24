@@ -73,6 +73,7 @@ export default function ClientApp({ supabaseUrl, supabaseAnonKey }: Props) {
   const handleStartIncident = () => {
     setEntryType('incident')
     setSelectedChildId(null)
+    setUserInput('')  // 新規開始時だけクリア
     if (children.length > 0) {
       setScreen('child-select')
     } else {
@@ -83,6 +84,7 @@ export default function ClientApp({ supabaseUrl, supabaseAnonKey }: Props) {
   const handleStartGood = () => {
     setEntryType('good')
     setSelectedChildId(null)
+    setUserInput('')  // 新規開始時だけクリア
     if (children.length > 0) {
       setScreen('child-select')
     } else {
@@ -150,6 +152,7 @@ export default function ClientApp({ supabaseUrl, supabaseAnonKey }: Props) {
                 onBack={() => children.length > 0 ? setScreen('child-select') : setScreen('home')}
                 onSubmit={handleSubmit}
                 entryType={entryType}
+                initialText={userInput}
               />
             )}
             {screen === 'response' && (
