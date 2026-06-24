@@ -77,7 +77,8 @@ export default function ResponseScreen({ userInput, childId, entryType = 'incide
   const [loading, setLoading] = useState(true)
   const [response, setResponse] = useState<IncidentResponse | GoodResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [adviceOpen, setAdviceOpen] = useState(false)
+  const [insightOpen, setInsightOpen] = useState(false)
+  const [tipOpen, setTipOpen] = useState(false)
 
   const isGood = entryType === 'good'
 
@@ -181,73 +182,79 @@ export default function ResponseScreen({ userInput, childId, entryType = 'incide
             </p>
           </div>
 
-          {/* アドバイス展開ボタン */}
-          {!adviceOpen && (
+          {/* alternatives（常時表示） */}
+          <div className="animate-fade-in-2 rounded-3xl p-5 shadow-sm"
+               style={{ background: 'rgba(255,255,255,0.9)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span>💬</span>
+              <span className="text-xs font-bold tracking-widest" style={{ color: '#ab47bc' }}>
+                こう言えばよかったかも
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {(response as IncidentResponse).alternatives.map((alt, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="mt-0.5 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0"
+                        style={{ background: '#f3e5f5', color: '#ab47bc' }}>
+                    {i + 1}
+                  </span>
+                  <p className="text-sm leading-relaxed" style={{ color: '#5c2d2d' }}>{alt}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* insight（個別トグル） */}
+          <div className="animate-fade-in-3 rounded-3xl shadow-sm overflow-hidden"
+               style={{ background: 'rgba(255,255,255,0.9)' }}>
             <button
-              onClick={() => setAdviceOpen(true)}
-              className="animate-fade-in-2 w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
-              style={{ background: 'rgba(255,255,255,0.85)', color: '#9e7b7b',
-                       border: '1.5px dashed #e0cccc' }}
+              onClick={() => setInsightOpen(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 transition-colors"
+              style={{ color: '#5c2d2d' }}
             >
-              <span>💬 アドバイスを見る</span>
-              <span style={{ color: '#c9a9a9' }}>▾</span>
+              <div className="flex items-center gap-2">
+                <span>✨</span>
+                <span className="text-xs font-bold tracking-widest" style={{ color: '#ff8a65' }}>
+                  なぜそうなったか
+                </span>
+              </div>
+              <span className="text-xs transition-transform duration-200"
+                    style={{ color: '#c9a9a9', transform: insightOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                ▾
+              </span>
             </button>
-          )}
+            {insightOpen && (
+              <p className="text-sm leading-relaxed px-5 pb-5" style={{ color: '#5c2d2d' }}>
+                {(response as IncidentResponse).insight}
+              </p>
+            )}
+          </div>
 
-          {/* アドバイス 3枚（展開後） */}
-          {adviceOpen && (
-            <>
-              {/* alternatives */}
-              <div className="animate-fade-in rounded-3xl p-5 shadow-sm"
-                   style={{ background: 'rgba(255,255,255,0.9)' }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span>💬</span>
-                  <span className="text-xs font-bold tracking-widest" style={{ color: '#ab47bc' }}>
-                    こう言えばよかったかも
-                  </span>
-                </div>
-                <div className="flex flex-col gap-3">
-                  {(response as IncidentResponse).alternatives.map((alt, i) => (
-                    <div key={i} className="flex gap-2 items-start">
-                      <span className="mt-0.5 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0"
-                            style={{ background: '#f3e5f5', color: '#ab47bc' }}>
-                        {i + 1}
-                      </span>
-                      <p className="text-sm leading-relaxed" style={{ color: '#5c2d2d' }}>{alt}</p>
-                    </div>
-                  ))}
-                </div>
+          {/* tip（個別トグル） */}
+          <div className="animate-fade-in-4 rounded-3xl shadow-sm overflow-hidden"
+               style={{ background: 'rgba(255,255,255,0.9)' }}>
+            <button
+              onClick={() => setTipOpen(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 transition-colors"
+              style={{ color: '#5c2d2d' }}
+            >
+              <div className="flex items-center gap-2">
+                <span>🌱</span>
+                <span className="text-xs font-bold tracking-widest" style={{ color: '#66bb6a' }}>
+                  次のために
+                </span>
               </div>
-
-              {/* insight */}
-              <div className="animate-fade-in-2 rounded-3xl p-5 shadow-sm"
-                   style={{ background: 'rgba(255,255,255,0.9)' }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span>✨</span>
-                  <span className="text-xs font-bold tracking-widest" style={{ color: '#ff8a65' }}>
-                    なぜそうなったか
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: '#5c2d2d' }}>
-                  {(response as IncidentResponse).insight}
-                </p>
-              </div>
-
-              {/* tip */}
-              <div className="animate-fade-in-3 rounded-3xl p-5 shadow-sm"
-                   style={{ background: 'rgba(255,255,255,0.9)' }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span>🌱</span>
-                  <span className="text-xs font-bold tracking-widest" style={{ color: '#66bb6a' }}>
-                    次のために
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: '#5c2d2d' }}>
-                  {(response as IncidentResponse).tip}
-                </p>
-              </div>
-            </>
-          )}
+              <span className="text-xs transition-transform duration-200"
+                    style={{ color: '#c9a9a9', transform: tipOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                ▾
+              </span>
+            </button>
+            {tipOpen && (
+              <p className="text-sm leading-relaxed px-5 pb-5" style={{ color: '#5c2d2d' }}>
+                {(response as IncidentResponse).tip}
+              </p>
+            )}
+          </div>
 
           {/* actions */}
           <div className="flex flex-col gap-3 mt-2 animate-fade-in-4">
