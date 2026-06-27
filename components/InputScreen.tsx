@@ -100,34 +100,33 @@ export default function InputScreen({ onBack, onSubmit, entryType = 'incident', 
             style={{
               background: 'rgba(255,255,255,0.9)',
               color: '#5c2d2d',
-              paddingBottom: isSpeechSupported ? '3.5rem' : undefined,
             }}
           />
           <span className="absolute bottom-4 right-5 text-xs" style={{ color: remaining < 50 ? '#e57373' : '#c9a9a9' }}>
             {remaining}
           </span>
-          {isSpeechSupported && (
-            <button
-              type="button"
-              onClick={toggleListening}
-              className={`absolute bottom-3 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 ${isListening ? 'animate-pulse' : ''}`}
-              style={isListening ? {
-                background: 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)',
-                color: '#fff',
-                boxShadow: '0 0 0 4px rgba(244,143,177,0.25)',
-              } : {
-                background: 'rgba(244,143,177,0.15)',
-                color: '#c06080',
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-              {isListening ? '聞いています…' : '音声入力'}
-            </button>
-          )}
         </div>
+        {isSpeechSupported && (
+          <button
+            type="button"
+            onClick={toggleListening}
+            className={`mt-2 self-start flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 ${isListening ? 'animate-pulse' : ''}`}
+            style={isListening ? {
+              background: 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)',
+              color: '#fff',
+              boxShadow: '0 0 0 4px rgba(244,143,177,0.25)',
+            } : {
+              background: 'rgba(244,143,177,0.15)',
+              color: '#c06080',
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+              <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+            {isListening ? '聞いています…' : '音声入力'}
+          </button>
+        )}
       </div>
 
       {/* submit */}
