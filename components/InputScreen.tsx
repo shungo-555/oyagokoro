@@ -91,12 +91,12 @@ export default function InputScreen({ onBack, onSubmit, entryType = 'incident', 
 
       {/* textarea */}
       <div className="flex-1 flex flex-col animate-fade-in-3">
-        <div className="relative flex-1">
+        <div className="relative">
           <textarea
             value={text}
             onChange={e => setText(e.target.value.slice(0, MAX_LENGTH))}
             placeholder={placeholder}
-            className="w-full h-full min-h-48 rounded-3xl p-5 text-base leading-relaxed resize-none border-0 shadow-md"
+            className="w-full min-h-48 rounded-3xl p-5 text-base leading-relaxed resize-none border-0 shadow-md"
             style={{
               background: 'rgba(255,255,255,0.9)',
               color: '#5c2d2d',
