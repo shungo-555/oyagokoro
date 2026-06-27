@@ -132,10 +132,13 @@
 
 ### 優先度 高
 
-**A. Supabase Auth の強化（最優先）**
-- 現状は Google OAuth 済みだが RLS が不完全な可能性あり
-- 全テーブルの RLS ポリシーを監査・補完
-- セッション切れ時のリダイレクト処理改善
+**A. Supabase Auth の強化（完了 2026-06-27）**
+- 全 API ルートの認証チェック監査 → 全て問題なし
+- RLS ポリシー監査結果：
+  - conversations: SELECT/INSERT/DELETE は既存、UPDATE のみ未設定 → migration_v6_rls.sql で追加
+  - children: ALL ポリシーで全操作カバー済み
+- セッション切れ：middleware + onAuthStateChange で正常に対応済み、改善不要
+- **Supabase SQL Editor で `ai_working/migration_v6_rls.sql` を実行してください**
 
 **B. プッシュ通知 / PWA 化**
 - Web Push API + Service Worker で毎晩リマインダー
