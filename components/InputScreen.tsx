@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface Props {
   onBack: () => void;
@@ -13,7 +13,43 @@ const MAX_LENGTH = 500;
 
 export default function InputScreen({ onBack, onSubmit, entryType = 'incident', initialText = '' }: Props) {
   const [text, setText] = useState(initialText);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
   const remaining = MAX_LENGTH - text.length;
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    setIsSpeechSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    const recognition = new SR();
+    recognition.lang = 'ja-JP';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (e: any) => {
+      const transcript: string = e.results[0][0].transcript;
+      setText(prev => (prev + transcript).slice(0, MAX_LENGTH));
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
 
   const isGood = entryType === 'good';
 
@@ -64,11 +100,33 @@ export default function InputScreen({ onBack, onSubmit, entryType = 'incident', 
             style={{
               background: 'rgba(255,255,255,0.9)',
               color: '#5c2d2d',
+              paddingBottom: isSpeechSupported ? '3.5rem' : undefined,
             }}
           />
           <span className="absolute bottom-4 right-5 text-xs" style={{ color: remaining < 50 ? '#e57373' : '#c9a9a9' }}>
             {remaining}
           </span>
+          {isSpeechSupported && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              className={`absolute bottom-3 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 ${isListening ? 'animate-pulse' : ''}`}
+              style={isListening ? {
+                background: 'linear-gradient(135deg, #f48fb1 0%, #ce93d8 100%)',
+                color: '#fff',
+                boxShadow: '0 0 0 4px rgba(244,143,177,0.25)',
+              } : {
+                background: 'rgba(244,143,177,0.15)',
+                color: '#c06080',
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+              {isListening ? '聞いています…' : '音声入力'}
+            </button>
+          )}
         </div>
       </div>
 
